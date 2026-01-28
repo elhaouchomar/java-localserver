@@ -1,84 +1,66 @@
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.SocketChannel;
-import java.nio.charset.StandardCharsets;
 
+import java.io.IOException;
+import java.net.http.HttpResponse;
+import java.nio.ByteBuffer;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.SocketChannel;
 import http.HttpParser;
-import http.HttpParser.ParsingStatus;
 import http.HttpRequest;
-import http.HttpResponse;
 
 public class Connection {
+    public SelectionKey key;
     public SocketChannel channel;
 
-    // Buffers
-    public ByteBuffer readBuffer;
-    public ByteBuffer writeBuffer;
+    private final ByteBuffer readBuffer = ByteBuffer.allocate(8192);
+    private final ByteBuffer writeBuffer = ByteBuffer.allocate(8192);
 
-    // HTTP layer objects (filled later)
-    public HttpRequest request;
-    public HttpResponse response;
+    private final HttpParser parser = new HttpParser();
+    private HttpRequest request;
 
-    public ConnectionState state;
+    public ConnectionState state = ConnectionState.READING;
 
-    // Timestamp for timeout handling
-    public long lastActivityTime;
+    public Connection() {
+    }
 
-    public Connection(SocketChannel channel) {
+    public Connection(SocketChannel channel, SelectionKey key) {
         this.channel = channel;
-        this.readBuffer = ByteBuffer.allocate(8192);
-        this.writeBuffer = ByteBuffer.allocate(8192);
-        this.state = ConnectionState.READING;
-        this.lastActivityTime = System.currentTimeMillis();
-        // HttpParser is now a static utility, no instance needed
+        this.key = key;
     }
 
     public void read() throws IOException {
-        int bytesRead = channel.read(this.readBuffer);
-        if (bytesRead == -1) { // Client closed connection
-            this.state = ConnectionState.CLOSING;
+        int bytes = channel.read(readBuffer);
+
+        if (bytes == -1) {
+            close();
             return;
         }
 
-        if (this.request == null) {
-            this.request = new HttpRequest(); // Start a new request if none is active
+        readBuffer.flip();
+
+        HttpRequest req = parser.tryParse(readBuffer);
+
+        if (req == null) {
+            // IMPORTANT: prepare buffer for next read
+            readBuffer.compact();
+            return;
         }
 
-        // Use static parse method
-        ParsingStatus status = HttpParser.parse(this.readBuffer, this.request);
+        this.request = req;
 
-        if (status == ParsingStatus.COMPLETE) {
-            this.state = ConnectionState.PROCESSING;
-            // Handle pipelined data: If unparsedData still contains data, it's for the next request
-            if (this.request.unparsedData.length() > 0) {
-                // Move remaining data to the beginning of readBuffer for the next request
-                // First, make sure readBuffer is empty or has been compacted
-                this.readBuffer.clear();
-                byte[] remainingBytes = this.request.unparsedData.toString().getBytes(StandardCharsets.UTF_8);
-                this.readBuffer.put(remainingBytes);
-                this.readBuffer.flip(); // Prepare for reading by the next HttpParser.parse call
+        System.out.println("===== HTTP REQUEST =====");
+        System.out.println(req);
+        System.out.println("========================");
 
-                System.out.println("Pipelined data detected and moved to readBuffer.");
-
-                // Reset HttpRequest for the next request, but keep the unparsedData as current readBuffer
-                HttpRequest nextRequest = new HttpRequest();
-                nextRequest.unparsedData.append(this.request.unparsedData.toString());
-                nextRequest.parsingStatus = ParsingStatus.INCOMPLETE_REQUEST_LINE;
-                this.request = nextRequest; // Assign the next request to this connection
-            } else {
-                // No pipelined data, reset request for next use
-                this.request = null;
-            }
-
-        } else if (status == ParsingStatus.ERROR) {
-            this.state = ConnectionState.CLOSING; // Close connection on parsing error
-            System.err.println("HTTP parsing error, closing connection.");
-            this.request = null; // Discard malformed request
-        }
-        // If INCOMPLETE, stay in READING state and wait for more data
+        // For now, close after one request
+        close();
     }
 
-    public void write() throws IOException {
-        channel.write(this.writeBuffer);
+    public void close() {
+        state = ConnectionState.CLOSED;
+        try {
+            key.cancel();
+            channel.close();
+        } catch (IOException ignored) {
+        }
     }
 }

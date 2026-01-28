@@ -3,8 +3,6 @@ package http;
 import java.util.HashMap;
 import java.util.Map;
 
-import http.HttpParser.ParsingStatus; // Import the nested enum
-
 public class HttpRequest {
     public String method;
     public String path;
@@ -12,16 +10,36 @@ public class HttpRequest {
 
     public Map<String, String> headers = new HashMap<>();
 
-    public int contentLength = -1; // -1 indicates Content-Length not yet determined
+    public int contentLength = -1; // from headers
     public byte[] body;
 
     public boolean keepAlive = true;
-
-    // Parser-related state
-    public ParsingStatus parsingStatus = ParsingStatus.INCOMPLETE_REQUEST_LINE;
-    public StringBuilder unparsedData = new StringBuilder(); // To accumulate raw data
+    public boolean isChunked = false;
 
     public void addHeader(String name, String value) {
         this.headers.put(name, value);
     }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+
+        sb.append(method).append(" ")
+                .append(path).append(" ")
+                .append(version).append("\n");
+
+        for (var e : headers.entrySet()) {
+            sb.append(e.getKey()).append(": ").append(e.getValue()).append("\n");
+        }
+
+        sb.append("\n");
+
+        if (body != null) {
+            sb.append("Body (").append(body.length).append(" bytes):\n");
+            sb.append(new String(body));
+        }
+
+        return sb.toString();
+    }
+
 }

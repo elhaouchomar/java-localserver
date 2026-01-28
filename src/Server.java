@@ -52,28 +52,11 @@ public class Server {
 
                 Connection conn = (Connection) key.attachment();
 
-                switch (conn.state) {
-                    case READING:
-                        conn.read();
-                        // if buffer has a complete HTTP request → conn.state = PROCESSING
-                        break;
-                    case PROCESSING:
-                        // conn.process(); // call HTTP parser, router, prepare response
-                        // conn.state = WRITING;
-                        // conn.key.interestOps(SelectionKey.OP_WRITE);
-                        break;
-                    case WRITING:
-                        conn.write();
-                        if (!conn.writeBuffer.hasRemaining()) {
-                            // conn.state = READING;
-                            // conn.key.interestOps(SelectionKey.OP_READ);
-                            // conn.readBuffer.clear();
-                            // conn.writeBuffer.clear();
-                        }
-                        break;
-                    case CLOSING:
-                        // conn.close();
-                        break;
+                if (conn == null)
+                    continue;
+
+                if (key.isReadable()) {
+                    conn.read();
                 }
 
             }
@@ -88,10 +71,16 @@ public class Server {
             return;
 
         client.configureBlocking(false);
+
         SelectionKey selectionKey = client.register(selector, SelectionKey.OP_READ);
 
-        selectionKey.attach(new Connection(client));
+        Connection conn = new Connection();
+        conn.channel = client;
+        conn.key = selectionKey;
+
+        selectionKey.attach(conn);
 
         System.out.println("New client connected: " + client);
     }
+
 }
