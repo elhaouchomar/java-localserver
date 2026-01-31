@@ -59,6 +59,10 @@ public class Server {
                     conn.read();
                 }
 
+                if (key.isWritable()) {
+                    conn.write();
+                }
+
             }
         }
     }

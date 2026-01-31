@@ -55,7 +55,7 @@ public class HttpParser {
                 case BODY:
                     if (!parseBody(buffer))
                         return null;
-                    buffer.compact();
+                    // buffer.compact();
                     stage = ParseStage.COMPLETE;
                     break;
                 case COMPLETE:
@@ -109,7 +109,7 @@ public class HttpParser {
         currentRequest.path = parts[1];
         currentRequest.version = parts[2];
 
-        buffer.compact();
+        // buffer.compact();
 
         return true;
     }
@@ -145,6 +145,7 @@ public class HttpParser {
         String headersBlock = new String(headerBytes, StandardCharsets.US_ASCII);
         String[] lines = headersBlock.split("\r\n");
 
+
         for (String line : lines) {
             int colon = line.indexOf(':');
             if (colon <= 0) {
@@ -154,6 +155,7 @@ public class HttpParser {
 
             String name = line.substring(0, colon).trim();
             String value = line.substring(colon + 1).trim();
+            // System.out.println("Header: " + name + " = " + value);
             currentRequest.addHeader(name, value);
 
             // Detect important headers
@@ -177,7 +179,7 @@ public class HttpParser {
             }
         }
 
-        if (currentRequest.isChunked && currentRequest.contentLength >= 0) {
+        if (currentRequest.isChunked && currentRequest.contentLength > 0) {
             stage = ParseStage.ERROR;
             return false;
         }
@@ -190,13 +192,17 @@ public class HttpParser {
             bodyRead = 0;
         }
 
-        buffer.compact();
+        // buffer.compact();
 
         return true;
     }
 
     private boolean parseBody(ByteBuffer buffer) throws IOException {
+        // System.out.println("------------------ Parsing body------------------\n");
+        // System.out.println(currentRequest.contentLength + " bytes expected.\n");
+        // System.out.println(currentRequest.isChunked ? "Chunked encoding.\n" : "chuncked flag does not detected\n------------------------------------\n");
         if (currentRequest.isChunked) {
+            // System.out.println("Parsing chunked body........");
             return parseChunkedBody(buffer);
         }
 
@@ -248,16 +254,27 @@ public class HttpParser {
                 }
 
                 case READ_CRLF -> {
-                    if (buffer.remaining() < 2)
-                        return false;
-                    buffer.get(); // \r
-                    buffer.get(); // \n
+                    if (currentChunkSize > 0) {
+                        // Just consume the CRLF after chunk data
+                        if (buffer.remaining() < 2)
+                            return false;
 
-                    if (currentChunkSize == 0) {
-                        chunkState = ChunkState.DONE;
-                        return true;
+                        buffer.get(); // \r
+                        buffer.get(); // \n
+
+                        chunkState = ChunkState.READ_SIZE;
+                        break;
                     }
-                    chunkState = ChunkState.READ_SIZE;
+
+                    // currentChunkSize == 0
+                    // RFC: final chunk must be followed by an empty line
+                    String line = readLine(buffer);
+                    if (line == null)
+                        return false;
+
+                    // Optional: trailers would be here (ignored for now)
+                    chunkState = ChunkState.DONE;
+                    return true;
                 }
 
                 case DONE -> {
@@ -298,7 +315,7 @@ public class HttpParser {
 
         // Body complete?
         if (bodyRead == currentRequest.contentLength) {
-            bodyBuffer.flip(); // ready for app layer to read from
+            // bodyBuffer.flip(); // ready for app layer to read from
             return true;
         }
 
@@ -330,7 +347,7 @@ public class HttpParser {
         return null;
     }
 
-    private void reset() {
+    public void reset() {
         currentRequest = new HttpRequest();
         stage = ParseStage.REQUEST_LINE;
 

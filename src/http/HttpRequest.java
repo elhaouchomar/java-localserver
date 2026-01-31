@@ -10,7 +10,7 @@ public class HttpRequest {
 
     public Map<String, String> headers = new HashMap<>();
 
-    public int contentLength = -1; // from headers
+    public int contentLength = 0; // from headers
     public byte[] body;
 
     public boolean keepAlive = true;
@@ -24,20 +24,51 @@ public class HttpRequest {
     public String toString() {
         StringBuilder sb = new StringBuilder();
 
-        sb.append(method).append(" ")
-                .append(path).append(" ")
-                .append(version).append("\n");
+        sb.append("========== HTTP REQUEST ==========\n");
 
-        for (var e : headers.entrySet()) {
-            sb.append(e.getKey()).append(": ").append(e.getValue()).append("\n");
+        // ───── Request Line ─────
+        sb.append("----------Request Line----------\n\n");
+        sb.append("  Method  : ").append(method).append("\n");
+        sb.append("  Path    : ").append(path).append("\n");
+        sb.append("  Version : ").append(version).append("\n");
+
+        // ───── Headers ─────
+        sb.append("\n----------Headers----------\n\n");
+        if (headers.isEmpty()) {
+            sb.append("  (none)\n");
+        } else {
+            for (var e : headers.entrySet()) {
+                sb.append("  ")
+                        .append(e.getKey())
+                        .append(" : ")
+                        .append(e.getValue())
+                        .append("\n");
+            }
         }
 
-        sb.append("\n");
+        // ───── Meta Data ─────
+        sb.append("\n----------Meta Data----------\n\n");
+        sb.append("  Content-Length : ").append(contentLength).append("\n");
+        sb.append("  Chunked        : ").append(isChunked).append("\n");
+        sb.append("  Keep-Alive     : ").append(keepAlive).append("\n");
 
-        if (body != null) {
-            sb.append("Body (").append(body.length).append(" bytes):\n");
-            sb.append(new String(body));
+        // ───── Body Info ─────
+        sb.append("\n----------Body----------\n\n");
+        if (body == null || body.length == 0) {
+            sb.append("  (empty)\n");
+        } else {
+            int previewLen = Math.min(body.length, 512);
+            sb.append("  Size    : ").append(body.length).append(" bytes\n");
+            sb.append("  Preview : ");
+            sb.append(new String(body, 0, previewLen));
+            // sb.append(" ----------------\n");
+            if (previewLen < body.length) {
+                sb.append("  ... (truncated)");
+            }
+            sb.append("\n");
         }
+
+        sb.append("==================================\n");
 
         return sb.toString();
     }

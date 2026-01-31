@@ -1,7 +1,7 @@
 ## 👤 MEMBER 1 — Core Server / NIO Engine  
 **Role:** Low-level backend (Sockets, Selector, stability)
 
-### Files to work on
+### 🔹Files to work on
 ```
 src/
 ├── Main.java

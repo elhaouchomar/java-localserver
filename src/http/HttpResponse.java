@@ -1,9 +1,95 @@
 package http;
 
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class HttpResponse {
+
     public int status;
-    public Map<String, String> headers;
-    public byte[] body;
+    public String reason;
+
+    public Map<String, String> headers = new HashMap<>();
+    public BodyProducer bodyProducer;
+
+    public boolean keepAlive = true;
+
+    public HttpResponse() {
+    }
+
+    private HttpResponse(Builder builder) {
+        this.status = builder.statusCode;
+        this.reason = builder.reason;
+        this.headers = builder.headers;
+        this.bodyProducer = builder.bodyProducer;
+    }
+
+    public static class Builder {
+        private int statusCode = 200;
+        private String reason = "OK";
+        private Map<String, String> headers = new LinkedHashMap<>();
+        private BodyProducer bodyProducer;
+
+        public Builder status(int code, String reason) {
+            this.statusCode = code;
+            this.reason = reason;
+            return this;
+        }
+
+        public Builder header(String key, String value) {
+            headers.put(key, value);
+            return this;
+        }
+
+        public Builder headers(Map<String, String> headers) {
+            if (headers == null)
+                return this;
+
+            for (Map.Entry<String, String> entry : headers.entrySet()) {
+                this.headers.put(entry.getKey(), entry.getValue());
+            }
+            return this;
+        }
+
+        // Set body from String -> FixedBodyProducer
+        public Builder body(String body) {
+            if (body == null)
+                body = "";
+            byte[] data = body.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            this.bodyProducer = new FixedBodyProducer(data);
+            headers.put("Content-Length", String.valueOf(data.length));
+            return this;
+        }
+
+        // Set body from bytes -> FixedBodyProducer
+        public Builder body(byte[] data) {
+            if (data == null)
+                data = new byte[0];
+            this.bodyProducer = new FixedBodyProducer(data);
+            headers.put("Content-Length", String.valueOf(data.length));
+            return this;
+        }
+
+        public Builder body(byte[] data, String contentType) {
+            body(data);
+            if (contentType != null && !contentType.isEmpty()) {
+                headers.put("Content-Type", contentType);
+            }
+            return this;
+        }
+
+        // Set body directly from a producer (for FileBodyProducer, CGIBodyProducer later)
+        public Builder body(BodyProducer producer) {
+            this.bodyProducer = producer;
+            return this;
+        }
+
+        public HttpResponse build() {
+            // If we have a producer but no Content-Length, we might use chunked
+            if (bodyProducer != null && !headers.containsKey("Content-Length")) {
+                headers.put("Transfer-Encoding", "chunked");
+            }
+            return new HttpResponse(this);
+        }
+    }
 }
