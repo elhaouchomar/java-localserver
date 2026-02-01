@@ -52,19 +52,20 @@ public class Server {
 
                 Connection conn = (Connection) key.attachment();
 
-                if (conn == null)
+                if (conn == null || conn.state == ConnectionState.CLOSED)
                     continue;
 
-                if (key.isReadable()) {
+                if (conn.state == ConnectionState.READING && key.isReadable()) {
                     conn.read();
                 }
 
-                if (key.isWritable()) {
+                if (conn.state == ConnectionState.WRITING && key.isWritable()) {
                     conn.write();
                 }
 
             }
         }
+
     }
 
     private void handleAccept(SelectionKey key) throws IOException {

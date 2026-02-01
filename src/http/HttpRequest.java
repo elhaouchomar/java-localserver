@@ -5,7 +5,7 @@ import java.util.Map;
 
 public class HttpRequest {
     public String method;
-    public String path;
+    private String path;
     public String version;
 
     public Map<String, String> headers = new HashMap<>();
@@ -18,6 +18,10 @@ public class HttpRequest {
 
     public void addHeader(String name, String value) {
         this.headers.put(name, value);
+    }
+
+    public String path() {
+        return this.path;
     }
 
     @Override
