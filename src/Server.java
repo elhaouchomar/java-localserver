@@ -6,14 +6,24 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.Iterator;
 
+import handler.HandlerResolver;
+import http.HttpResponse;
+import http.HttpResponseFactory;
+import router.RouteMatch;
+import router.Router;
+
 public class Server {
 
     private Selector selector;
     private ServerSocketChannel serverChannel;
     private final int port;
+    private final Router router;
+    private HandlerResolver handlerResolver;
 
-    public Server(int port) {
+    public Server(int port, Router router) {
         this.port = port;
+        this.router = router;
+        this.handlerResolver = new HandlerResolver();
     }
 
     public void start() throws IOException {
@@ -52,19 +62,35 @@ public class Server {
 
                 Connection conn = (Connection) key.attachment();
 
-                if (conn == null)
+                if (conn == null || conn.state == ConnectionState.CLOSED)
                     continue;
 
-                if (key.isReadable()) {
+                if (conn.state == ConnectionState.READING && key.isReadable()) {
                     conn.read();
+                    if (conn.getRequest() != null) {
+                        RouteMatch match = router.match(conn.getRequest());
+                        if(match == null) {
+                            HttpResponse response = HttpResponseFactory.notFound();
+                            conn.setResponse(response);
+                            conn.state = ConnectionState.WRITING;
+                            conn.key.interestOps(SelectionKey.OP_WRITE);
+                            continue;
+                        }
+                        
+                        HttpResponse response = handlerResolver.handle(conn.getRequest(), match);
+                        conn.setResponse(response);
+                        conn.state = ConnectionState.WRITING;
+                        conn.key.interestOps(SelectionKey.OP_WRITE);
+                    }
                 }
 
-                if (key.isWritable()) {
+                if (conn.state == ConnectionState.WRITING && key.isWritable() && conn.getResponse() != null) {
                     conn.write();
                 }
 
             }
         }
+
     }
 
     private void handleAccept(SelectionKey key) throws IOException {

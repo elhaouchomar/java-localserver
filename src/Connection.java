@@ -23,6 +23,10 @@ public class Connection {
 
     public ConnectionState state = ConnectionState.READING;
 
+    private byte[] pendingBytes;
+    private int pendingOffset;
+    private boolean isWriteComplete = false;
+
     public Connection() {
     }
 
@@ -31,7 +35,23 @@ public class Connection {
         this.key = key;
     }
 
+    public HttpRequest getRequest() {
+        return request;
+    }
+
+    public HttpResponse getResponse() {
+        return response;
+    }
+
+    public void setResponse(HttpResponse response) {
+        this.response = response;
+        this.serializer = new HttpSerializer(response);
+    }
+
     public void read() throws IOException {
+        if (state != ConnectionState.READING)
+            return;
+        // System.out.println("Reading from channel...");
         int bytes = channel.read(readBuffer);
 
         if (bytes == -1) {
@@ -49,17 +69,22 @@ public class Connection {
         }
 
         this.request = req;
-
+        // this.readBuffer.clear();
         // System.out.println("===== HTTP REQUEST =====");
         System.out.println(req);
+        readBuffer.compact();
         // System.out.println("========================");
 
         // prepare a temp response to test
-        this.response = http.HttpResponseFactory.ok("Hello from NIO server!");
-        this.serializer = new HttpSerializer(response);
+        // this.response = http.HttpResponseFactory.ok("Hello from NIO server!\nHello from NIO server!\n" + //
+        //         "Hello from NIO server!\nHello from NIO server!\n" + //
+        //         "Hello from NIO server!\nHello from NIO server!\n" + //
+        //         "Hello from NIO server!\nHello from NIO server!\n" + //
+        //         "Hello from NIO server!\nHello from NIO server!\n" + //
+        //         "Hello from NIO server!\nHello from NIO server!\n");
+        // this.serializer = new HttpSerializer(response);
 
-        state = ConnectionState.WRITING;
-        key.interestOps(SelectionKey.OP_WRITE);
+        
     }
 
     public void close() {
@@ -76,44 +101,52 @@ public class Connection {
             return;
 
         // If buffer has data, try flushing first
-        if (writeBuffer.hasRemaining()) {
-            System.out.println("Flushing remaining data...\n");
+        if (writeBuffer.hasRemaining() && writeBuffer.limit() != writeBuffer.capacity()) {
             channel.write(writeBuffer);
-            if (writeBuffer.hasRemaining())
-                return;
-            writeBuffer.clear();
+            if (writeBuffer.hasRemaining()) {
+                return; // socket backpressure
+            }
+            writeBuffer.clear(); // back to WRITE MODE
         }
 
         // Ask serializer for next bytes
-        byte[] bytes = serializer.nextBytes();
+        if (pendingBytes == null) {
+            pendingBytes = serializer.nextBytes();
+            pendingOffset = 0;
 
-        if (bytes == null) {
-            // nothing ready yet
-            return;
+            if (pendingBytes == null) {
+                return;
+            }
+
+            if (pendingBytes.length == 0) {
+                finishResponse();
+                return;
+            }
         }
 
-        if (bytes.length == 0) {
-            // response fully sent
-            finishResponse();
-            return;
+
+        while (pendingOffset < pendingBytes.length) {
+            int toCopy = Math.min(writeBuffer.remaining(), pendingBytes.length - pendingOffset);
+            writeBuffer.put(pendingBytes, pendingOffset, toCopy);
+            pendingOffset += toCopy;
+
+            writeBuffer.flip();
+            channel.write(writeBuffer);
+
+            if (writeBuffer.hasRemaining()) {
+                // System.out.println("--- write buffer full, wait for next OP_WRITE ---");
+                return;
+            }
+
+            writeBuffer.clear();
         }
 
-        System.out.println("data to write ==> " + new String(bytes));
+        pendingBytes = null;
 
-        System.out.println(
-                "bytes.length=" + bytes.length +
-                        " remaining=" + writeBuffer.remaining() +
-                        " position=" + writeBuffer.position() +
-                        " limit=" + writeBuffer.limit() + "\n");
-
-
-        // writeBuffer.clear();
-        writeBuffer.put(bytes);
-        writeBuffer.flip();
-        channel.write(writeBuffer);
     }
 
     private void finishResponse() throws IOException {
+        // System.out.println("Response fully sent.");
         if (response.keepAlive) {
             // reset for next request
             parser.reset();

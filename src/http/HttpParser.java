@@ -105,8 +105,14 @@ public class HttpParser {
             return false;
         }
 
+        
         currentRequest.method = parts[0];
-        currentRequest.path = parts[1];
+
+        // Split path and query
+        int q = parts[1].indexOf('?');
+        currentRequest.setPath((q == -1) ? parts[1] : parts[1].substring(0, q));
+        currentRequest.setRawQuery((q == -1) ? null : parts[1].substring(q + 1));
+
         currentRequest.version = parts[2];
 
         // buffer.compact();

@@ -6,7 +6,8 @@ public class RouteConfig {
     public String root;
     public Set<String> allowedMethods;
     public boolean directoryListing;
-    public String defaultFile;
+    public String indexFile;
     public String redirectTo;
+    public boolean autoRedirect = true;
     public boolean isCgi;
 }

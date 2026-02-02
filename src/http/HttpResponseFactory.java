@@ -19,6 +19,21 @@ public class HttpResponseFactory {
                 .build();
     }
 
+    public static HttpResponse ok(BodyProducer data, String contentType) {
+        return new HttpResponse.Builder()
+                .status(200, "OK")
+                .body(data, contentType)
+                .build();
+    }
+
+    public static HttpResponse ok(BodyProducer data, String contentType, long size) {
+        return new HttpResponse.Builder()
+                .status(200, "OK")
+                .body(data, contentType)
+                .header("Content-Length", String.valueOf(size))
+                .build();
+    }
+
     public static HttpResponse notFound() {
         return new HttpResponse.Builder()
                 .status(404, "Not Found")
@@ -40,6 +55,29 @@ public class HttpResponseFactory {
                 .status(500, "Internal Server Error")
                 .header("Content-Type", "text/plain; charset=utf-8")
                 .body("500 Internal Server Error")
+                .build();
+    }
+
+    public static HttpResponse methodNotAllowed() {
+        return new HttpResponse.Builder()
+                .status(405, "Method Not Allowed")
+                .header("Content-Type", "text/plain; charset=utf-8")
+                .body("405 Method Not Allowed")
+                .build();
+    }
+
+    public static HttpResponse forbidden() {
+        return new HttpResponse.Builder()
+                .status(403, "Forbidden")
+                .header("Content-Type", "text/plain; charset=utf-8")
+                .body("403 Forbidden")
+                .build();
+    }
+
+    public static HttpResponse redirect(String location) {
+        return new HttpResponse.Builder()
+                .status(301, "Moved Permanently")
+                .header("Location", location)
                 .build();
     }
 

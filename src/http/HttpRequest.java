@@ -5,8 +5,9 @@ import java.util.Map;
 
 public class HttpRequest {
     public String method;
-    public String path;
+    private String path;
     public String version;
+    private String rawQuery;
 
     public Map<String, String> headers = new HashMap<>();
 
@@ -18,6 +19,30 @@ public class HttpRequest {
 
     public void addHeader(String name, String value) {
         this.headers.put(name, value);
+    }
+
+    public String getMethod() {
+        return this.method;
+    }
+
+    public void setMethod(String method) {
+        this.method = method;
+    }
+
+    public String getPath() {
+        return this.path;
+    }
+
+    public void setPath(String path) {
+        this.path = path;
+    }
+
+    public String getRawQuery() {
+        return this.rawQuery;
+    }
+
+    public void setRawQuery(String rawQuery) {
+        this.rawQuery = rawQuery;
     }
 
     @Override
