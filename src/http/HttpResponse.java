@@ -61,6 +61,9 @@ public class HttpResponse {
             return this;
         }
 
+
+        
+
         // Set body from bytes -> FixedBodyProducer
         public Builder body(byte[] data) {
             if (data == null)
@@ -79,8 +82,11 @@ public class HttpResponse {
         }
 
         // Set body directly from a producer (for FileBodyProducer, CGIBodyProducer later)
-        public Builder body(BodyProducer producer) {
+        public Builder body(BodyProducer producer, String contentType) {
             this.bodyProducer = producer;
+            if (contentType != null && !contentType.isEmpty()) {
+                headers.put("Content-Type", contentType);
+            }
             return this;
         }
 

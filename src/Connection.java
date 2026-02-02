@@ -25,6 +25,7 @@ public class Connection {
 
     private byte[] pendingBytes;
     private int pendingOffset;
+    private boolean isWriteComplete = false;
 
     public Connection() {
     }
@@ -32,6 +33,19 @@ public class Connection {
     public Connection(SocketChannel channel, SelectionKey key) {
         this.channel = channel;
         this.key = key;
+    }
+
+    public HttpRequest getRequest() {
+        return request;
+    }
+
+    public HttpResponse getResponse() {
+        return response;
+    }
+
+    public void setResponse(HttpResponse response) {
+        this.response = response;
+        this.serializer = new HttpSerializer(response);
     }
 
     public void read() throws IOException {
@@ -62,16 +76,15 @@ public class Connection {
         // System.out.println("========================");
 
         // prepare a temp response to test
-        this.response = http.HttpResponseFactory.ok("Hello from NIO server!\nHello from NIO server!\n" + //
-                "Hello from NIO server!\nHello from NIO server!\n" + //
-                "Hello from NIO server!\nHello from NIO server!\n" + //
-                "Hello from NIO server!\nHello from NIO server!\n" + //
-                "Hello from NIO server!\nHello from NIO server!\n" + //
-                "Hello from NIO server!\nHello from NIO server!\n");
-        this.serializer = new HttpSerializer(response);
+        // this.response = http.HttpResponseFactory.ok("Hello from NIO server!\nHello from NIO server!\n" + //
+        //         "Hello from NIO server!\nHello from NIO server!\n" + //
+        //         "Hello from NIO server!\nHello from NIO server!\n" + //
+        //         "Hello from NIO server!\nHello from NIO server!\n" + //
+        //         "Hello from NIO server!\nHello from NIO server!\n" + //
+        //         "Hello from NIO server!\nHello from NIO server!\n");
+        // this.serializer = new HttpSerializer(response);
 
-        state = ConnectionState.WRITING;
-        key.interestOps(SelectionKey.OP_WRITE);
+        
     }
 
     public void close() {
@@ -133,7 +146,7 @@ public class Connection {
     }
 
     private void finishResponse() throws IOException {
-        System.out.println("Response fully sent.");
+        // System.out.println("Response fully sent.");
         if (response.keepAlive) {
             // reset for next request
             parser.reset();

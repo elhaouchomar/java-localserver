@@ -7,6 +7,7 @@ public class HttpRequest {
     public String method;
     private String path;
     public String version;
+    private String rawQuery;
 
     public Map<String, String> headers = new HashMap<>();
 
@@ -20,8 +21,28 @@ public class HttpRequest {
         this.headers.put(name, value);
     }
 
-    public String path() {
+    public String getMethod() {
+        return this.method;
+    }
+
+    public void setMethod(String method) {
+        this.method = method;
+    }
+
+    public String getPath() {
         return this.path;
+    }
+
+    public void setPath(String path) {
+        this.path = path;
+    }
+
+    public String getRawQuery() {
+        return this.rawQuery;
+    }
+
+    public void setRawQuery(String rawQuery) {
+        this.rawQuery = rawQuery;
     }
 
     @Override

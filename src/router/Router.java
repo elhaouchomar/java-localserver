@@ -18,7 +18,7 @@ public class Router {
 
     public RouteMatch match(HttpRequest request) {
 
-        String requestPath = normalizePath(request.path());
+        String requestPath = normalizePath(request.getPath(), true);
 
         RouteConfig bestRoute = null;
         String bestPrefix = null;
@@ -54,17 +54,13 @@ public class Router {
         return Paths.get(route.root).resolve(relative.substring(1)).normalize();
     }
 
-    private String normalizePath(String path) {
-        if (path == null || path.isEmpty()) {
+    private String normalizePath(String path, boolean keepTrailingSlash) {
+        if (path == null || path.isEmpty())
             return "/";
-        }
-
-        if (!path.startsWith("/")) {
+        if (!path.startsWith("/"))
             path = "/" + path;
-        }
 
-        // remove trailing slash except root
-        if (path.length() > 1 && path.endsWith("/")) {
+        if (!keepTrailingSlash && path.length() > 1 && path.endsWith("/")) {
             path = path.substring(0, path.length() - 1);
         }
 
