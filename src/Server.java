@@ -5,7 +5,9 @@ import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.Iterator;
+import java.util.List;
 
+import config.Config;
 import handler.HandlerResolver;
 import http.HttpResponse;
 import http.HttpResponseFactory;
@@ -16,14 +18,13 @@ public class Server {
 
     private Selector selector;
     private ServerSocketChannel serverChannel;
-    private final int port;
-    private final Router router;
+    // private final int port;
+    private  Router router;
     private HandlerResolver handlerResolver;
+    private List<Config> configs;
 
-    public Server(int port, Router router) {
-        this.port = port;
-        this.router = router;
-        this.handlerResolver = new HandlerResolver();
+    public Server(List<Config> configs) {
+        this.configs = configs;
     }
 
     public void start() throws IOException {
@@ -36,11 +37,11 @@ public class Server {
 
         serverChannel = ServerSocketChannel.open();
         serverChannel.configureBlocking(false);
-        serverChannel.bind(new InetSocketAddress(port));
+        // serverChannel.bind(new InetSocketAddress(port));
 
         serverChannel.register(selector, SelectionKey.OP_ACCEPT);
 
-        System.out.println("Server listening on port " + port);
+        // System.out.println("Server listening on port " + port);
     }
 
     private void eventLoop() throws IOException {

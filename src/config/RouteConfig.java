@@ -1,13 +1,16 @@
 package config;
 
-import java.util.Set;
+import java.util.*;
 
 public class RouteConfig {
+    public String path;
     public String root;
-    public Set<String> allowedMethods;
+    public List<String> methods = new ArrayList<>();
     public boolean directoryListing;
     public String indexFile;
-    public String redirectTo;
     public boolean autoRedirect = true;
-    public boolean isCgi;
+    public String redirect;
+    public int redirectCode;
+    public String cgiExtension;
+    public String cgiPath;
 }
