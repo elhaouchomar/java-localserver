@@ -3,14 +3,27 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
+import java.util.List;
+
+import config.Config;
 import http.HttpParser;
 import http.HttpRequest;
 import http.HttpResponse;
 import http.HttpSerializer;
+import utils.TimeoutTracker;
 
 public class Connection {
     public SelectionKey key;
     public SocketChannel channel;
+
+    /**
+     * The list of Config objects that share the host:port binding this client
+     * connected to. Server uses this to pick the right virtual host.
+     */
+    public final List<Config> configCandidates;
+
+    /** Tracks inactivity; connection is closed after 30 seconds of silence. */
+    public final TimeoutTracker timeout = new TimeoutTracker(30_000);
 
     private final ByteBuffer readBuffer = ByteBuffer.allocate(8192);
     private final ByteBuffer writeBuffer = ByteBuffer.allocate(8192);
@@ -25,14 +38,11 @@ public class Connection {
 
     private byte[] pendingBytes;
     private int pendingOffset;
-    private boolean isWriteComplete = false;
 
-    public Connection() {
-    }
-
-    public Connection(SocketChannel channel, SelectionKey key) {
+    public Connection(SocketChannel channel, SelectionKey key, List<Config> configCandidates) {
         this.channel = channel;
         this.key = key;
+        this.configCandidates = configCandidates;
     }
 
     public HttpRequest getRequest() {
@@ -58,6 +68,8 @@ public class Connection {
             close();
             return;
         }
+
+        if (bytes > 0) timeout.touch();
 
         readBuffer.flip();
 
