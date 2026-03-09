@@ -2,7 +2,6 @@ package router;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Map;
 
 import config.Config;
 import config.RouteConfig;
@@ -23,14 +22,15 @@ public class Router {
         RouteConfig bestRoute = null;
         String bestPrefix = null;
 
-        // 1️⃣ longest-prefix match
-        for (Map.Entry<String, RouteConfig> entry : config.routes.entrySet()) {
-            String prefix = entry.getKey();
+        // longest-prefix match over the list of routes
+        for (RouteConfig route : config.routes) {
+            String prefix = route.path;
+            if (prefix == null) continue;
 
             if (requestPath.equals(prefix) || requestPath.startsWith(prefix + "/")) {
                 if (bestPrefix == null || prefix.length() > bestPrefix.length()) {
                     bestPrefix = prefix;
-                    bestRoute = entry.getValue();
+                    bestRoute = route;
                 }
             }
         }
@@ -39,7 +39,7 @@ public class Router {
             return null; // 404
         }
 
-        // 2️⃣ resolve filesystem path
+        // resolve filesystem path
         Path resolvedPath = resolvePath(bestRoute, bestPrefix, requestPath);
 
         return new RouteMatch(bestRoute, resolvedPath, requestPath);
