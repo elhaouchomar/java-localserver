@@ -2,6 +2,8 @@ package http;
 
 import java.util.HashMap;
 import java.util.Map;
+import utils.Cookie;
+import utils.Session;
 
 public class HttpRequest {
     public String method;
@@ -43,6 +45,32 @@ public class HttpRequest {
 
     public void setRawQuery(String rawQuery) {
         this.rawQuery = rawQuery;
+    }
+
+    /** Parsed cookies from the Cookie request header (lazy, cached). */
+    private Map<String, String> parsedCookies;
+
+    public Map<String, String> getCookies() {
+        if (parsedCookies == null) {
+            parsedCookies = Cookie.parse(headers.get("Cookie"));
+        }
+        return parsedCookies;
+    }
+
+    /**
+     * Look up an existing session from the SESSION_ID cookie.
+     * Returns null if there is no session cookie or the session has expired.
+     */
+    public Session getSession() {
+        return Session.get(getCookies().get("SESSION_ID"));
+    }
+
+    /**
+     * Look up an existing session or create a new one.
+     * Callers must send the new session ID back as a Set-Cookie header.
+     */
+    public Session getOrCreateSession() {
+        return Session.getOrCreate(getCookies().get("SESSION_ID"));
     }
 
     @Override

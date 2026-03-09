@@ -81,6 +81,9 @@ public class HttpSerializer {
         StringBuilder sb = new StringBuilder();
         sb.append("HTTP/1.1 ").append(response.status).append(" ").append(response.reason).append("\r\n");
         response.headers.forEach((k, v) -> sb.append(k).append(": ").append(v).append("\r\n"));
+        for (String cookieValue : response.setCookies) {
+            sb.append("Set-Cookie: ").append(cookieValue).append("\r\n");
+        }
         sb.append("\r\n");
         return sb.toString().getBytes(StandardCharsets.US_ASCII);
     }
