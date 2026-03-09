@@ -75,9 +75,23 @@ public class HttpResponseFactory {
     }
 
     public static HttpResponse redirect(String location) {
+        return redirect(301, location);
+    }
+
+    public static HttpResponse redirect(int code, String location) {
+        String reason = code == 302 ? "Found" : code == 307 ? "Temporary Redirect" : "Moved Permanently";
         return new HttpResponse.Builder()
-                .status(301, "Moved Permanently")
+                .status(code, reason)
                 .header("Location", location)
+                .body("")
+                .build();
+    }
+
+    public static HttpResponse payloadTooLarge() {
+        return new HttpResponse.Builder()
+                .status(413, "Payload Too Large")
+                .header("Content-Type", "text/plain; charset=utf-8")
+                .body("413 Payload Too Large")
                 .build();
     }
 
