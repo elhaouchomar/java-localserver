@@ -18,8 +18,9 @@ public class DirectoryHandler implements RequestHandler {
         Path dir = match.getResolvedPath();
         String requestPath = match.getRequestPath();
 
-        if (route.redirectTo != null) {
-            return HttpResponseFactory.redirect(route.redirectTo);
+        if (route.redirect != null) {
+            int code = route.redirectCode > 0 ? route.redirectCode : 301;
+            return HttpResponseFactory.redirect(code, route.redirect);
         }
 
         if (route.autoRedirect && !requestPath.endsWith("/")) {
