@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import config.Config;
 import http.HttpRequest;
 import http.HttpResponse;
 import http.HttpResponseFactory;
@@ -17,23 +18,25 @@ public class UploadHandler implements RequestHandler {
 
     @Override
     public HttpResponse handle(HttpRequest request, RouteMatch match) {
-        Path rootPath = Path.of(match.getRoute().root).normalize();
-        String contentType = request.headers.getOrDefault("Content-Type", "");
+        Config config  = match.getConfig();
+        Path rootPath  = Path.of(match.getRoute().root).normalize();
+        String ct      = request.headers.getOrDefault("Content-Type", "");
 
-        if (contentType.startsWith("multipart/form-data")) {
-            return handleMultipart(request, contentType, rootPath);
+        if (ct.startsWith("multipart/form-data")) {
+            return handleMultipart(request, ct, rootPath, config);
         }
-        return handleRaw(request, match.getResolvedPath(), rootPath);
+        return handleRaw(request, match.getResolvedPath(), rootPath, config);
     }
 
     // ─── Multipart ────────────────────────────────────────────────────────────
 
-    private HttpResponse handleMultipart(HttpRequest request, String contentType, Path uploadDir) {
+    private HttpResponse handleMultipart(HttpRequest request, String contentType,
+                                          Path uploadDir, Config config) {
         String boundary = parseBoundary(contentType);
         if (boundary == null)
-            return HttpResponseFactory.badRequest("Missing multipart boundary");
+            return HttpResponseFactory.errorResponse(config, 400);
         if (request.body == null || request.body.length == 0)
-            return HttpResponseFactory.badRequest("Empty body");
+            return HttpResponseFactory.errorResponse(config, 400);
 
         byte[] body       = request.body;
         byte[] firstDelim = ("--" + boundary).getBytes(StandardCharsets.ISO_8859_1);
@@ -41,11 +44,11 @@ public class UploadHandler implements RequestHandler {
 
         int pos = indexOf(body, firstDelim, 0);
         if (pos == -1)
-            return HttpResponseFactory.badRequest("Invalid multipart: boundary not found");
+            return HttpResponseFactory.errorResponse(config, 400);
         pos += firstDelim.length;
 
         if (pos + 1 >= body.length || body[pos] != '\r' || body[pos + 1] != '\n')
-            return HttpResponseFactory.badRequest("Invalid multipart format");
+            return HttpResponseFactory.errorResponse(config, 400);
         pos += 2;
 
         List<String> saved  = new ArrayList<>();
@@ -119,12 +122,13 @@ public class UploadHandler implements RequestHandler {
 
     // ─── Raw upload ───────────────────────────────────────────────────────────
 
-    private HttpResponse handleRaw(HttpRequest request, Path targetPath, Path rootPath) {
+    private HttpResponse handleRaw(HttpRequest request, Path targetPath,
+                                    Path rootPath, Config config) {
         targetPath = targetPath.normalize();
         if (!PathUtils.isSafe(targetPath, rootPath))
-            return HttpResponseFactory.forbidden();
+            return HttpResponseFactory.errorResponse(config, 403);
         if (request.body == null || request.body.length == 0)
-            return HttpResponseFactory.badRequest("No body provided");
+            return HttpResponseFactory.errorResponse(config, 400);
 
         try {
             if (targetPath.getParent() != null)
@@ -132,7 +136,7 @@ public class UploadHandler implements RequestHandler {
             Files.write(targetPath, request.body);
             return HttpResponseFactory.noContent();
         } catch (IOException e) {
-            return HttpResponseFactory.internalServerError();
+            return HttpResponseFactory.errorResponse(config, 500);
         }
     }
 

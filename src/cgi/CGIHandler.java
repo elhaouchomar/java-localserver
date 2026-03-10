@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import config.Config;
 import http.HttpRequest;
 import http.HttpResponse;
 import http.HttpResponseFactory;
@@ -13,7 +14,8 @@ public class CGIHandler {
 
     private static final int TIMEOUT_SECONDS = 30;
 
-    public static HttpResponse execute(String interpreter, String scriptPath, HttpRequest request) {
+    public static HttpResponse execute(String interpreter, String scriptPath,
+                                        HttpRequest request, Config config) {
         try {
             ProcessBuilder pb = new ProcessBuilder(interpreter, scriptPath);
             pb.redirectErrorStream(false);
@@ -49,21 +51,21 @@ public class CGIHandler {
             if (!finished) {
                 process.destroyForcibly();
                 System.err.println("[CGI] Script timed out: " + scriptPath);
-                return HttpResponseFactory.internalServerError();
+                return HttpResponseFactory.errorResponse(config, 500);
             }
 
             byte[] output = process.getInputStream().readAllBytes();
 
             if (process.exitValue() != 0) {
                 System.err.println("[CGI] Script exited with code " + process.exitValue());
-                return HttpResponseFactory.internalServerError();
+                return HttpResponseFactory.errorResponse(config, 500);
             }
 
             return parseCgiOutput(output);
 
         } catch (Exception e) {
             System.err.println("[CGI] Error executing " + scriptPath + ": " + e.getMessage());
-            return HttpResponseFactory.internalServerError();
+            return HttpResponseFactory.errorResponse(config, 500);
         }
     }
 

@@ -33,7 +33,7 @@ public class HandlerResolver {
         if (route.cgiExtension != null && route.cgiPath != null) {
             String fileName = path.getFileName() != null ? path.getFileName().toString() : "";
             if (fileName.endsWith(route.cgiExtension)) {
-                return CGIHandler.execute(route.cgiPath, path.toAbsolutePath().toString(), request);
+                return CGIHandler.execute(route.cgiPath, path.toAbsolutePath().toString(), request, config);
             }
         }
 
