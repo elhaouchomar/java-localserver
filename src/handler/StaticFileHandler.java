@@ -19,37 +19,20 @@ public class StaticFileHandler implements RequestHandler {
     }
 
     public HttpResponse serveFile(Path filePath, String root) {
-
         Path rootPath = Path.of(root).normalize();
         filePath = filePath.normalize();
 
-        if (!filePath.startsWith(rootPath)) {
-            return HttpResponseFactory.forbidden();
-        }
-
-        if (!Files.exists(filePath)) {
-            return HttpResponseFactory.notFound();
-        }
-
-        if (!Files.isRegularFile(filePath)) {
-            return HttpResponseFactory.forbidden();
-        }
-
-        if (!Files.isReadable(filePath)) {
-            return HttpResponseFactory.forbidden();
-        }
+        if (!PathUtils.isSafe(filePath, rootPath)) return HttpResponseFactory.forbidden();
+        if (!Files.exists(filePath))               return HttpResponseFactory.notFound();
+        if (!Files.isRegularFile(filePath))        return HttpResponseFactory.forbidden();
+        if (!Files.isReadable(filePath))           return HttpResponseFactory.forbidden();
 
         try {
             BodyProducer body = new FileBodyProducer(filePath);
             long size = Files.size(filePath);
-
             String contentType = Files.probeContentType(filePath);
-            if (contentType == null) {
-                contentType = "application/octet-stream";
-            }
-
+            if (contentType == null) contentType = "application/octet-stream";
             return HttpResponseFactory.ok(body, contentType, size);
-
         } catch (IOException e) {
             return HttpResponseFactory.internalServerError();
         }

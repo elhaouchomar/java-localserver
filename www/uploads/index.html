@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Upload Manager</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+
+    h1 { font-size: 1.6rem; margin-bottom: 2rem; color: #f8fafc; }
+    h2 { font-size: 1.1rem; margin-bottom: 1rem; color: #94a3b8; text-transform: uppercase; letter-spacing: .05em; }
+
+    .card {
+      background: #1e2330;
+      border: 1px solid #2d3548;
+      border-radius: .75rem;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    /* Drop zone */
+    #dropzone {
+      border: 2px dashed #3b4a6b;
+      border-radius: .5rem;
+      padding: 2.5rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      color: #64748b;
+    }
+    #dropzone.hover { border-color: #6366f1; background: #1a1f30; color: #a5b4fc; }
+    #dropzone svg { display: block; margin: 0 auto .75rem; }
+    #dropzone p   { font-size: .95rem; }
+    #dropzone span { font-size: .8rem; }
+
+    #fileInput { display: none; }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: .4rem;
+      padding: .55rem 1.2rem;
+      border: none; border-radius: .4rem;
+      font-size: .9rem; font-weight: 600;
+      cursor: pointer; transition: opacity .15s;
+    }
+    .btn:hover  { opacity: .85; }
+    .btn-upload { background: #6366f1; color: #fff; margin-top: 1rem; }
+    .btn-delete { background: #dc2626; color: #fff; padding: .3rem .7rem; font-size: .8rem; }
+
+    #uploadBtn { width: 100%; justify-content: center; }
+
+    /* Progress bar */
+    #progress-wrap { margin-top: 1rem; display: none; }
+    #progress-bar-bg { background: #2d3548; border-radius: 999px; height: 6px; overflow: hidden; }
+    #progress-bar    { height: 100%; width: 0; background: #6366f1; transition: width .2s; }
+    #progress-label  { font-size: .8rem; color: #94a3b8; margin-top: .4rem; }
+
+    /* Toast */
+    #toast {
+      position: fixed; bottom: 1.5rem; right: 1.5rem;
+      padding: .75rem 1.2rem;
+      border-radius: .5rem;
+      font-size: .9rem; font-weight: 600;
+      opacity: 0; pointer-events: none;
+      transition: opacity .3s;
+    }
+    #toast.show      { opacity: 1; pointer-events: auto; }
+    #toast.success   { background: #16a34a; color: #fff; }
+    #toast.error     { background: #dc2626; color: #fff; }
+
+    /* File list */
+    #fileList { list-style: none; }
+    #fileList li {
+      display: flex; align-items: center; gap: .75rem;
+      padding: .6rem .5rem;
+      border-bottom: 1px solid #2d3548;
+    }
+    #fileList li:last-child { border-bottom: none; }
+    #fileList .name { flex: 1; word-break: break-all; }
+    #fileList .name a { color: #93c5fd; text-decoration: none; }
+    #fileList .name a:hover { text-decoration: underline; }
+    #fileList .size { font-size: .8rem; color: #64748b; white-space: nowrap; }
+
+    .empty { color: #4b5563; font-size: .9rem; padding: .5rem 0; }
+    .spinner { animation: spin 1s linear infinite; display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<h1>📁 Upload Manager</h1>
+
+<!-- Upload card -->
+<div class="card">
+  <h2>Upload Files</h2>
+
+  <div id="dropzone" onclick="document.getElementById('fileInput').click()">
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>
+      <polyline points="16 8 12 4 8 8"/>
+      <line x1="12" y1="4" x2="12" y2="16"/>
+    </svg>
+    <p>Drag &amp; drop files here, or click to select</p>
+    <span>Any file type — max 10 MB total</span>
+  </div>
+  <input type="file" id="fileInput" multiple>
+
+  <div id="progress-wrap">
+    <div id="progress-bar-bg"><div id="progress-bar"></div></div>
+    <div id="progress-label">Uploading…</div>
+  </div>
+
+  <button class="btn btn-upload" id="uploadBtn" disabled>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polyline points="16 8 12 4 8 8"/><line x1="12" y1="4" x2="12" y2="20"/>
+    </svg>
+    Upload
+  </button>
+</div>
+
+<!-- File list card -->
+<div class="card">
+  <h2>Uploaded Files &nbsp;<span id="refreshBtn" style="cursor:pointer;font-size:.85rem;color:#6366f1;" onclick="loadFiles()">↻ refresh</span></h2>
+  <ul id="fileList"><li class="empty"><span class="spinner">⟳</span> Loading…</li></ul>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  const dropzone   = document.getElementById('dropzone');
+  const fileInput  = document.getElementById('fileInput');
+  const uploadBtn  = document.getElementById('uploadBtn');
+  const progressWrap = document.getElementById('progress-wrap');
+  const progressBar  = document.getElementById('progress-bar');
+  const progressLabel = document.getElementById('progress-label');
+  const fileList   = document.getElementById('fileList');
+
+  let selectedFiles = [];
+
+  // ── Drag & drop ──────────────────────────────────────────────────────
+  dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('hover'); });
+  dropzone.addEventListener('dragleave', ()  => dropzone.classList.remove('hover'));
+  dropzone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropzone.classList.remove('hover');
+    setFiles(Array.from(e.dataTransfer.files));
+  });
+
+  fileInput.addEventListener('change', () => setFiles(Array.from(fileInput.files)));
+
+  function setFiles(files) {
+    selectedFiles = files;
+    const names = files.map(f => f.name).join(', ');
+    dropzone.querySelector('p').textContent = names || 'Drag & drop files here, or click to select';
+    uploadBtn.disabled = files.length === 0;
+  }
+
+  // ── Upload ────────────────────────────────────────────────────────────
+  uploadBtn.addEventListener('click', async () => {
+    if (!selectedFiles.length) return;
+
+    const form = new FormData();
+    selectedFiles.forEach(f => form.append('file', f, f.name));
+
+    progressWrap.style.display = 'block';
+    progressBar.style.width = '0%';
+    progressLabel.textContent = 'Uploading…';
+    uploadBtn.disabled = true;
+
+    try {
+      await uploadWithProgress('/uploads/', form, pct => {
+        progressBar.style.width = pct + '%';
+        progressLabel.textContent = `Uploading… ${pct}%`;
+      });
+
+      progressBar.style.width = '100%';
+      progressLabel.textContent = 'Done!';
+      showToast('Upload successful!', 'success');
+    } catch (err) {
+      progressLabel.textContent = 'Upload failed.';
+      showToast('Upload failed: ' + err.message, 'error');
+    } finally {
+      setTimeout(() => { progressWrap.style.display = 'none'; }, 1500);
+      fileInput.value = '';
+      setFiles([]);
+      loadFiles();
+    }
+  });
+
+  function uploadWithProgress(url, formData, onProgress) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', url);
+      xhr.upload.addEventListener('progress', e => {
+        if (e.lengthComputable) onProgress(Math.round(e.loaded / e.total * 100));
+      });
+      xhr.addEventListener('load', () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const res = JSON.parse(xhr.responseText);
+            if (res.errors && res.errors.length) reject(new Error(res.errors.join(', ')));
+            else resolve(res);
+          } catch { resolve({}); }
+        } else {
+          reject(new Error(`HTTP ${xhr.status}`));
+        }
+      });
+      xhr.addEventListener('error', () => reject(new Error('Network error')));
+      xhr.send(formData);
+    });
+  }
+
+  // ── File listing ──────────────────────────────────────────────────────
+  async function loadFiles() {
+    fileList.innerHTML = '<li class="empty"><span class="spinner">⟳</span> Loading…</li>';
+    try {
+      // Fetch the directory listing (the server returns an HTML listing for GET /uploads/)
+      const res  = await fetch('/uploads/');
+      const html = await res.text();
+      const doc  = new DOMParser().parseFromString(html, 'text/html');
+      const links = Array.from(doc.querySelectorAll('a'))
+        .map(a => a.getAttribute('href'))
+        .filter(href => href && !href.endsWith('/') && href !== 'index.html');
+
+      if (!links.length) {
+        fileList.innerHTML = '<li class="empty">No files uploaded yet.</li>';
+        return;
+      }
+
+      fileList.innerHTML = '';
+      links.forEach(name => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+          <span class="name"><a href="/uploads/${encodeURIComponent(name)}" target="_blank">${escHtml(name)}</a></span>
+          <button class="btn btn-delete" data-name="${escAttr(name)}">Delete</button>`;
+        li.querySelector('.btn-delete').addEventListener('click', () => deleteFile(name));
+        fileList.appendChild(li);
+      });
+    } catch (e) {
+      fileList.innerHTML = '<li class="empty">Failed to load file list.</li>';
+    }
+  }
+
+  // ── Delete ────────────────────────────────────────────────────────────
+  async function deleteFile(name) {
+    if (!confirm(`Delete "${name}"?`)) return;
+    try {
+      const res = await fetch('/uploads/' + encodeURIComponent(name), { method: 'DELETE' });
+      if (res.status === 204) {
+        showToast(`"${name}" deleted.`, 'success');
+        loadFiles();
+      } else {
+        showToast(`Delete failed: HTTP ${res.status}`, 'error');
+      }
+    } catch (e) {
+      showToast('Delete failed: ' + e.message, 'error');
+    }
+  }
+
+  // ── Toast ─────────────────────────────────────────────────────────────
+  let toastTimer;
+  function showToast(msg, type) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'show ' + type;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { t.className = ''; }, 3000);
+  }
+
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+  function escAttr(s) {
+    return s.replace(/"/g, '&quot;');
+  }
+
+  // Load on start
+  loadFiles();
+</script>
+</body>
+</html>

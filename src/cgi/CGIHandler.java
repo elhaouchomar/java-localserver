@@ -1,6 +1,5 @@
 package cgi;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Map;
@@ -34,6 +33,9 @@ public class CGIHandler {
 
             String ua = request.headers.get("User-Agent");
             if (ua != null) env.put("HTTP_USER_AGENT", ua);
+
+            String cookie = request.headers.get("Cookie");
+            if (cookie != null) env.put("HTTP_COOKIE", cookie);
 
             Process process = pb.start();
 
@@ -103,6 +105,7 @@ public class CGIHandler {
         int status = 200;
         String statusReason = "OK";
         String contentType = "text/html; charset=utf-8";
+        java.util.List<String> setCookies = new java.util.ArrayList<>();
 
         for (String line : headerBlock.split("\r?\n")) {
             int colon = line.indexOf(':');
@@ -119,12 +122,19 @@ public class CGIHandler {
                 if (parts.length > 1) statusReason = parts[1];
             } else if (name.equalsIgnoreCase("Content-Type")) {
                 contentType = value;
+            } else if (name.equalsIgnoreCase("Set-Cookie")) {
+                setCookies.add(value);
             }
         }
 
-        return new HttpResponse.Builder()
+        HttpResponse.Builder builder = new HttpResponse.Builder()
                 .status(status, statusReason)
-                .body(body, contentType)
-                .build();
+                .body(body, contentType);
+
+        for (String c : setCookies) {
+            builder.rawCookie(c);
+        }
+
+        return builder.build();
     }
 }

@@ -45,6 +45,29 @@ public class HttpRequest {
 
     public void setRawQuery(String rawQuery) {
         this.rawQuery = rawQuery;
+        this.parsedQuery = null; // invalidate cache
+    }
+
+    /** Parsed query from the URL (lazy, cached). e.g. ?name=alice&theme=dark */
+    private Map<String, String> parsedQuery;
+
+    public Map<String, String> getQueryParams() {
+        if (parsedQuery == null) {
+            parsedQuery = new java.util.LinkedHashMap<>();
+            if (rawQuery != null && !rawQuery.isEmpty()) {
+                for (String pair : rawQuery.split("&")) {
+                    int eq = pair.indexOf('=');
+                    if (eq > 0) {
+                        String key   = java.net.URLDecoder.decode(pair.substring(0, eq),  java.nio.charset.StandardCharsets.UTF_8);
+                        String value = java.net.URLDecoder.decode(pair.substring(eq + 1), java.nio.charset.StandardCharsets.UTF_8);
+                        parsedQuery.put(key, value);
+                    } else if (!pair.isEmpty()) {
+                        parsedQuery.put(java.net.URLDecoder.decode(pair, java.nio.charset.StandardCharsets.UTF_8), "");
+                    }
+                }
+            }
+        }
+        return parsedQuery;
     }
 
     /** Parsed cookies from the Cookie request header (lazy, cached). */

@@ -94,6 +94,12 @@ public class HttpResponse {
             return this;
         }
 
+        /** Add a raw Set-Cookie value string (used by CGI output forwarding). */
+        public Builder rawCookie(String rawValue) {
+            setCookies.add(rawValue);
+            return this;
+        }
+
         public Builder body(BodyProducer producer, String contentType) {
             this.bodyProducer = producer;
             if (contentType != null && !contentType.isEmpty()) {

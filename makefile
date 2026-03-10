@@ -15,7 +15,7 @@ CLASSES = $(SOURCES:$(SRC_DIR)/%.java=$(CLASSES_DIR)/%.class)
 # Main class (no .java, no .class)
 MAIN_CLASS = Main
 
-.PHONY: all run clean
+.PHONY: all run clean test
 
 # Default target
 all: $(CLASSES)
@@ -28,6 +28,10 @@ $(CLASSES_DIR)/%.class: $(SRC_DIR)/%.java
 # Run the program
 run: all
 	$(JAVA) -cp $(CLASSES_DIR):$(SRC_DIR) $(MAIN_CLASS)
+
+# Run all tests
+test: all
+	$(JAVA) -cp $(CLASSES_DIR) test.RunTests
 
 # Clean compiled files
 clean:

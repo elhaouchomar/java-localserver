@@ -6,7 +6,7 @@
             "server_name": "localhost",
             "root": "./www",
             "is_default": true,
-            "client_max_body_size": 1048576,
+            "client_max_body_size": 10485760,
             "error_pages": {
                 "400": "./error_pages/400.html",
                 "403": "./error_pages/403.html",
@@ -20,8 +20,7 @@
                     "path": "/",
                     "methods": ["GET"],
                     "root": "./www",
-                    "default_file": "index.html",
-                    "directory_listing": false
+                    "directory_listing": true
                 },
                 {
                     "path": "/uploads",
@@ -33,6 +32,33 @@
                     "path": "/cgi-bin",
                     "methods": ["GET", "POST"],
                     "root": "./www/cgi-bin",
+                    "cgi_extension": ".py",
+                    "cgi_path": "/usr/bin/python3"
+                }
+            ]
+        },
+        {
+            "host": "127.0.0.1",
+            "ports": [8081, 8096],
+            "server_name": "site2.localhost",
+            "root": "./www2",
+            "is_default": false,
+            "client_max_body_size": 512000,
+            "error_pages": {
+                "404": "./error_pages/404.html",
+                "500": "./error_pages/500.html"
+            },
+            "routes": [
+                {
+                    "path": "/",
+                    "methods": ["GET"],
+                    "root": "./www2",
+                    "directory_listing": true
+                },
+                {
+                    "path": "/cgi-bin",
+                    "methods": ["GET", "POST"],
+                    "root": "./www2/cgi-bin",
                     "cgi_extension": ".py",
                     "cgi_path": "/usr/bin/python3"
                 }

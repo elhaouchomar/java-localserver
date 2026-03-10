@@ -43,7 +43,20 @@ public class Connection {
         this.channel = channel;
         this.key = key;
         this.configCandidates = configCandidates;
+
+        // Use the most permissive limit across candidates so we don't
+        // incorrectly reject requests that a matched config would allow.
+        // If any candidate has 0 (unlimited), we leave the parser unlimited;
+        // Server.java still applies the per-config precise check.
+        boolean anyUnlimited = configCandidates.stream().anyMatch(c -> c.maxBodySize <= 0);
+        if (!anyUnlimited) {
+            long max = configCandidates.stream().mapToLong(c -> c.maxBodySize).max().orElse(0);
+            parser.setMaxBodySize(max);
+        }
     }
+
+    /** Non-zero when the parser detected a bad request (400) or payload too large (413). */
+    public int getParseError() { return parser.getErrorCode(); }
 
     public HttpRequest getRequest() {
         return request;
@@ -72,31 +85,13 @@ public class Connection {
         if (bytes > 0) timeout.touch();
 
         readBuffer.flip();
-
         HttpRequest req = parser.tryParse(readBuffer);
+        readBuffer.compact();
 
-        if (req == null) {
-            readBuffer.compact();
-            return;
-        }
+        if (req == null) return;
 
         this.request = req;
-        // this.readBuffer.clear();
-        // System.out.println("===== HTTP REQUEST =====");
         System.out.println(req);
-        readBuffer.compact();
-        // System.out.println("========================");
-
-        // prepare a temp response to test
-        // this.response = http.HttpResponseFactory.ok("Hello from NIO server!\nHello from NIO server!\n" + //
-        //         "Hello from NIO server!\nHello from NIO server!\n" + //
-        //         "Hello from NIO server!\nHello from NIO server!\n" + //
-        //         "Hello from NIO server!\nHello from NIO server!\n" + //
-        //         "Hello from NIO server!\nHello from NIO server!\n" + //
-        //         "Hello from NIO server!\nHello from NIO server!\n");
-        // this.serializer = new HttpSerializer(response);
-
-        
     }
 
     public void close() {
@@ -168,6 +163,8 @@ public class Connection {
 
             state = ConnectionState.READING;
             key.interestOps(SelectionKey.OP_READ);
+            // Give the idle connection a fresh window for the next request.
+            timeout.touch();
         } else {
             close();
         }

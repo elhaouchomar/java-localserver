@@ -4,8 +4,6 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
@@ -156,110 +154,57 @@ public class Server {
 
     private void handleRead(Connection conn) throws IOException {
         conn.read();
+
+        // Parser detected a protocol error or oversized payload before the
+        // request was complete — respond immediately without routing.
+        int parseError = conn.getParseError();
+        if (parseError != 0) {
+            Config cfg = conn.configCandidates.isEmpty() ? null : conn.configCandidates.get(0);
+            HttpResponse errResp = HttpResponseFactory.errorResponse(cfg, parseError);
+            errResp.keepAlive = false;
+            conn.setResponse(errResp);
+            conn.state = ConnectionState.WRITING;
+            conn.key.interestOps(SelectionKey.OP_WRITE);
+            return;
+        }
+
         if (conn.getRequest() == null) return; // request not yet complete
 
         conn.timeout.touch();
 
         HttpRequest request = conn.getRequest();
-        Config config = selectConfig(conn.configCandidates, request);
+        RouteMatch match = new Router(conn.configCandidates).match(request);
 
         HttpResponse response;
-        if (config == null) {
+        if (match == null) {
+            // No config could be selected at all
             response = HttpResponseFactory.notFound();
-        } else if (config.maxBodySize > 0 && request.contentLength > config.maxBodySize) {
-            response = buildErrorResponse(config, 413);
         } else {
-            Router router = new Router(config);
-            RouteMatch match = router.match(request);
-            if (match == null) {
-                response = buildErrorResponse(config, 404);
+            Config config = match.getConfig();
+            if (config.maxBodySize > 0 && request.contentLength > config.maxBodySize) {
+                response = HttpResponseFactory.errorResponse(config, 413);
+            } else if (match.getRoute() == null) {
+                response = HttpResponseFactory.errorResponse(config, 404);
             } else {
                 try {
                     response = handlerResolver.handle(request, match, config);
                 } catch (Exception e) {
                     System.err.println("[SERVER] Handler error: " + e.getMessage());
-                    response = buildErrorResponse(config, 500);
+                    response = HttpResponseFactory.errorResponse(config, 500);
                 }
             }
         }
+
+        // Reset the inactivity timer now that the handler has finished.
+        // This ensures the write phase and the next keep-alive idle window
+        // always start with a full budget, regardless of how long the handler
+        // (e.g. CGI) took.
+        conn.timeout.touch();
 
         response.keepAlive = request.keepAlive;
         conn.setResponse(response);
         conn.state = ConnectionState.WRITING;
         conn.key.interestOps(SelectionKey.OP_WRITE);
-    }
-
-    // ─── Virtual-host selection ───────────────────────────────────────────────
-
-    /**
-     * Pick the right Config from the candidates that share a host:port binding.
-     *
-     * Priority:
-     *   1. Exact match on serverName / serverAliases via the Host header
-     *   2. The config marked is_default among the candidates
-     *   3. First config in the list (catch-all)
-     *
-     * If candidates is null or empty, returns null (→ 404).
-     */
-    private Config selectConfig(List<Config> candidates, HttpRequest request) {
-        if (candidates == null || candidates.isEmpty()) return null;
-
-        String hostHeader = request.headers.get("Host");
-
-        // 1. Hostname match
-        for (Config c : candidates) {
-            if (c.matchesHostname(hostHeader)) return c;
-        }
-
-        // 2. Default server for this binding
-        for (Config c : candidates) {
-            if (c.isDefault) return c;
-        }
-
-        // 3. Catch-all: first declared
-        return candidates.get(0);
-    }
-
-    // ─── Error responses ─────────────────────────────────────────────────────
-
-    /**
-     * Return an error response using the config's custom error page if defined,
-     * falling back to the built-in plain-text responses.
-     */
-    private HttpResponse buildErrorResponse(Config config, int code) {
-        if (config != null && config.errorPages.containsKey(code)) {
-            String pagePath = config.errorPages.get(code);
-            Path filePath = Path.of(pagePath).normalize();
-            if (Files.exists(filePath) && Files.isRegularFile(filePath)) {
-                try {
-                    byte[] data = Files.readAllBytes(filePath);
-                    return new http.HttpResponse.Builder()
-                            .status(code, reasonPhrase(code))
-                            .body(data, "text/html; charset=utf-8")
-                            .build();
-                } catch (IOException ignored) {
-                }
-            }
-        }
-        return switch (code) {
-            case 400 -> HttpResponseFactory.badRequest("400 Bad Request");
-            case 403 -> HttpResponseFactory.forbidden();
-            case 404 -> HttpResponseFactory.notFound();
-            case 405 -> HttpResponseFactory.methodNotAllowed();
-            case 413 -> HttpResponseFactory.payloadTooLarge();
-            default  -> HttpResponseFactory.internalServerError();
-        };
-    }
-
-    private static String reasonPhrase(int code) {
-        return switch (code) {
-            case 400 -> "Bad Request";
-            case 403 -> "Forbidden";
-            case 404 -> "Not Found";
-            case 405 -> "Method Not Allowed";
-            case 413 -> "Payload Too Large";
-            default  -> "Internal Server Error";
-        };
     }
 
     // ─── Timeout sweep ───────────────────────────────────────────────────────
