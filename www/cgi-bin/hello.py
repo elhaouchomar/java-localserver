@@ -14,7 +14,7 @@ CGI_VARS = [
     "HTTP_USER_AGENT",
 ]
 
-time.sleep(30)
+time.sleep(10)
 
 method = os.environ.get("REQUEST_METHOD", "GET")
 query  = os.environ.get("QUERY_STRING", "")

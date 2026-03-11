@@ -12,7 +12,7 @@ import http.HttpResponseFactory;
 
 public class CGIHandler {
 
-    private static final int TIMEOUT_SECONDS = 30;
+    private static final int TIMEOUT_SECONDS = 10;
 
     public static HttpResponse execute(String interpreter, String scriptPath,
                                         HttpRequest request, Config config) {

@@ -23,7 +23,7 @@ public class Connection {
     public final List<Config> configCandidates;
 
     /** Tracks inactivity; connection is closed after 30 seconds of silence. */
-    public final TimeoutTracker timeout = new TimeoutTracker(30_000);
+    public final TimeoutTracker timeout = new TimeoutTracker(10_000);
 
     private final ByteBuffer readBuffer = ByteBuffer.allocate(8192);
     private final ByteBuffer writeBuffer = ByteBuffer.allocate(8192);
