@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import sys
+import time
 
 CGI_VARS = [
     "REQUEST_METHOD",
@@ -12,6 +13,8 @@ CGI_VARS = [
     "HTTP_HOST",
     "HTTP_USER_AGENT",
 ]
+
+time.sleep(30)
 
 method = os.environ.get("REQUEST_METHOD", "GET")
 query  = os.environ.get("QUERY_STRING", "")

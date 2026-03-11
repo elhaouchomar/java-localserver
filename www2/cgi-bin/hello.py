@@ -13,6 +13,8 @@ CGI_VARS = [
     "HTTP_USER_AGENT",
 ]
 
+
+
 method = os.environ.get("REQUEST_METHOD", "GET")
 query  = os.environ.get("QUERY_STRING", "")
 host   = os.environ.get("HTTP_HOST", "unknown")

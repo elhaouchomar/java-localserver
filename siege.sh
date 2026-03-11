@@ -17,6 +17,6 @@ export PATH="$INSTALL_DIR/bin:$PATH"
 
 
 TEST_IP="127.0.0.1"
-TEST_PORT="8080"
+TEST_PORT="8081"
 
-siege -b "$TEST_IP:$TEST_PORT"
+siege -b -c 1000 "$TEST_IP:$TEST_PORT"

@@ -19,7 +19,7 @@ public class ConfigLoader {
 
         validateConfiguration(configs);
 
-        System.out.println("[CONFIG] ✅ Configuration validated successfully.");
+        System.out.println("[CONFIG] Configuration validated successfully.");
         return configs;
     }
 
